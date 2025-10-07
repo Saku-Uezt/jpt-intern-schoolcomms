@@ -1,0 +1,17 @@
+<!doctype html><html lang="ja"><meta charset="utf-8">
+<body>
+  <h2>前登校日分の提出：{{ tdate }}</h2>
+
+  {% if exists %}
+    <p>この対象日は提出済みです。<a href="{% url 'student_entries' %}">履歴を見る</a></p>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <textarea name="content" rows="8" cols="60" placeholder="連絡帳の内容を入力"></textarea><br>
+      <button>提出</button>
+    </form>
+  {% endif %}
+
+  <p><a href="{% url 'home' %}">ホームへ戻る</a></p>
+</body>
+</html>

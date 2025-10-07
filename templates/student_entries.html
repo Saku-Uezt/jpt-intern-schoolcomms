@@ -1,0 +1,19 @@
+<!doctype html><html lang="ja"><meta charset="utf-8">
+<body>
+  <h2>自分の提出履歴</h2>
+  <table border="1" cellpadding="6">
+    <tr><th>対象日</th><th>状態</th><th>内容</th></tr>
+    {% for e in entries %}
+      <tr>
+        <td>{{ e.target_date }}</td>
+        <td>{{ e.get_status_display }}</td>
+        <td><pre style="white-space:pre-wrap">{{ e.content }}</pre></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3">記録なし</td></tr>
+    {% endfor %}
+  </table>
+  <p><a href="{% url 'student_entry_new' %}">今日の対象日を提出する</a></p>
+  <p><a href="{% url 'home' %}">ホームへ戻る</a></p>
+</body>
+</html>

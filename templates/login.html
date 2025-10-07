@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block content %}
+<h1>ログイン</h1>
+<form method="post">{% csrf_token %}
+  <input name="username" placeholder="ユーザー名">
+  <input name="password" type="password" placeholder="パスワード">
+  <button>ログイン</button>
+</form>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block content %}
+<h2>担任ダッシュボード（対象日: {{ tdate }}）</h2>
+
+<h3>今日の提出状況</h3>
+<table border="1" cellpadding="6">
+  <tr><th>生徒</th><th>状態</th><th>内容</th><th>操作</th></tr>
+  {% for e in entries_today %}
+    <tr>
+      <td>{{ e.student }}</td>
+      <td>{{ e.get_status_display }}</td>
+      <td><pre style="white-space:pre-wrap">{{ e.content|truncatechars:100 }}</pre></td>
+      <td>{% if e.status != "READ" %}<a href="{% url 'mark_read' e.id %}">既読にする</a>{% else %}既読済{% endif %}</td>
+    </tr>
+  {% endfor %}
+  {% for s in not_submitted %}
+    <tr><td>{{ s }}</td><td>未提出</td><td>-</td><td>-</td></tr>
+  {% endfor %}
+</table>
+
+<h3>過去記録（担当クラス）</h3>
+<form method="get">
+  <input name="q" placeholder="キーワード検索" value="{{ request.GET.q }}">
+  <button>検索</button>
+</form>
+<table border="1" cellpadding="6">
+  <tr><th>対象日</th><th>生徒</th><th>状態</th><th>内容</th></tr>
+  {% for e in history %}
+    <tr>
+      <td>{{ e.target_date }}</td>
+      <td>{{ e.student }}</td>
+      <td>{{ e.get_status_display }}</td>
+      <td><pre style="white-space:pre-wrap">{{ e.content|truncatechars:120 }}</pre></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">記録なし</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
