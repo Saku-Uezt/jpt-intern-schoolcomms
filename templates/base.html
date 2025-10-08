@@ -1,23 +1,35 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>SchoolComms</title></head>
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}SchoolComms{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:sans-serif;max-width:960px;margin:24px auto;padding:0 12px;}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    .card{border:1px solid #ddd;border-radius:8px;padding:12px;background:#fafafa}
+    .btn{display:inline-block;padding:6px 10px;border:1px solid #888;border-radius:6px;text-decoration:none}
+  </style>
+  {% block head %}{% endblock %}
+</head>
 <body>
-  <nav>
-    {% if user.is_authenticated %}
-      ようこそ {{ user.username }} |
-      <a href="{% url 'home' %}">Home</a> |
-      <a href="{% url 'student_entry_new' %}">提出</a> |
-      <a href="{% url 'student_entries' %}">履歴</a> |
-      <a href="{% url 'teacher_dashboard' %}">担任ダッシュボード</a> |
-      <!-- ログアウトボタンのみPOST処理で行う（405エラー回避のため）-->
+<header>
+  <div><a href="{% url 'home' %}">🏫 SchoolComms</a></div>
+  <div>
+    {% if request.user.is_authenticated %}
+      ようこそ {{ request.user.username }} |
       <form method="post" action="{% url 'logout' %}" style="display:inline;">
         {% csrf_token %}
-        <button type="submit" style="background:none;border:none;color:#00f;cursor:pointer;">
-          ログアウト
-        </button>
+        <button class="btn" type="submit">ログアウト</button>
       </form>
     {% else %}
-      <a href="{% url 'login' %}">ログイン</a>
+      <a class="btn" href="{% url 'login' %}">ログイン</a>
     {% endif %}
-  </nav>
-  <hr>
-  {% block content %}{% endblock %}
-</body></html>
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+</body>
+</html>

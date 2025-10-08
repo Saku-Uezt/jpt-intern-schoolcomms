@@ -6,6 +6,7 @@ from django.http import HttpResponseForbidden
 from django.db.models import Q
 from .models import Student, Entry, ClassRoom
 from django.contrib.auth.forms import AuthenticationForm
+from django.views.decorators.http import require_POST
 
 def is_in(user, group_name: str) -> bool:
     return user.is_authenticated and user.groups.filter(name=group_name).exists()
@@ -24,6 +25,7 @@ def home(request):
 #             login(request, u); return redirect("home")
 #     return render(request, "login.html")
 
+
 # 拡張版ログイン画面（認証時ロールに合わせてリダイレクト）
 def custom_login(request):
     if request.method == "POST":
@@ -31,21 +33,31 @@ def custom_login(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-
-            # グループによるリダイレクト分岐
-            if user.groups.filter(name="STUDENT").exists():
-                return redirect("student_entry_new")
-            elif user.groups.filter(name="TEACHER").exists():
-                return redirect("teacher_dashboard")
-            else:
-                return redirect("home")
+            # 一元ルートへ集約
+            return redirect("route_after_login")
     else:
         form = AuthenticationForm()
-
     return render(request, "registration/login.html", {"form": form})
 
 def logout_view(request):
     logout(request); return redirect("login")
+
+# 権限によるリダイレクト処理
+@login_required
+def route_after_login(request):
+    user = request.user
+    # 管理者権限の場合（現状ダッシュボード未実装なのでDjangoのadminサイトへ）
+    if user.is_superuser or is_in(user, "ADMIN"):
+        return redirect("/admin/")  # 'admin_dashboard' を実装後差し替え
+    # 権限が先生の場合
+    if is_in(user, "TEACHER"):
+        return redirect("teacher_dashboard")
+    # 権限が生徒の場合
+    elif is_in(user, "STUDENT"):
+        # 生徒は “提出 or 履歴” のどちらでもOK。既存導線に合わせて片方に寄せる
+        return redirect("student_entries")  
+    # どこも通らない場合（未所属など）はフォールバック
+    return redirect("home")
 
 @login_required
 def student_entry_new(request):
@@ -92,6 +104,7 @@ def teacher_dashboard(request):
     })
 
 @login_required
+@require_POST
 def mark_read(request, entry_id: int):
     if not is_in(request.user, "TEACHER"):
         return HttpResponseForbidden("担任のみ利用可")

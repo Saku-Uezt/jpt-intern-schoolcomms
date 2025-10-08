@@ -1,7 +1,8 @@
-#モデルクラス（学年、クラス、生徒の定義）
+#モデルクラス（DB定義、学年、クラス、生徒）
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class Grade(models.Model):
     name = models.CharField(max_length=20)  # 1年,2年...
@@ -30,18 +31,21 @@ class Entry(models.Model):
     content = models.TextField()
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.SUBMITTED)
     read_at = models.DateTimeField(null=True, blank=True)
-    read_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="read_entries")
+    read_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.PROTECT, related_name="read_entries")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ("student", "target_date")  # 同日二重提出を防止
 
-    def lock_as_read(self, teacher_user):
-        if self.status == self.Status.READ:
+    def lock_as_read(self, teacher: User):
+        # idempotent（2回押されても安全）
+        if self.read_at:
             return
-        from django.utils import timezone
-        self.status = self.Status.READ
-        self.read_by = teacher_user
+        self.read_by = teacher
         self.read_at = timezone.now()
-        self.save()
+        self.save(update_fields=["read_by", "read_at"])
+
+    @property
+    def is_read(self) -> bool:
+        return bool(self.read_at)

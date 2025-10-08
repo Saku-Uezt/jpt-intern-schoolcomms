@@ -1,3 +1,4 @@
+import os
 """
 Django settings for schoolcomms project.
 
@@ -14,18 +15,34 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+from dotenv import load_dotenv; load_dotenv(BASE_DIR / ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-p-gh0s)5)b%2581)rftpnfm-et-z*0=9+h%@k=8qmq$-t2tu^l'
+SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv(
+    "DJANGO_ALLOWED_HOSTS",
+    "localhost,127.0.0.1"
+).split(",")
+
+# 逆プロキシで https 経由になる本番などで設定（カンマ区切り）
+_csrf = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [x for x in _csrf.split(",") if x] if _csrf else []
+
+if not DEBUG:
+    #本番用のセキュリティ設定
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 
 # Application definition
@@ -117,6 +134,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"  # 本番: collectstatic 置き場
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -124,6 +142,6 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ログイン画面情報
-LOGIN_REDIRECT_URL = "/"          # ログイン後に飛ぶ場所
+LOGIN_REDIRECT_URL = "/route/"          # ログイン後に飛ぶ場所
 LOGOUT_REDIRECT_URL = "/accounts/login/"  # ログアウト後の遷移先
 LOGIN_URL = "/accounts/login/"    # ログインが必要なページでリダイレクトされるURL

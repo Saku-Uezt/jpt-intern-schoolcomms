@@ -23,3 +23,4 @@ class EntryAdmin(admin.ModelAdmin):
     list_display = ("id","student","target_date","status","read_by","read_at","created_at")
     list_filter = ("status","target_date","student__class_room")
     search_fields = ("student__user__username","student__student_no")
+    readonly_fields = ("read_by", "read_at")

@@ -1,38 +1,54 @@
-{% extends "base.html" %}{% block content %}
-<h2>担任ダッシュボード（対象日: {{ tdate }}）</h2>
+<!-- templates/teacher_dashboard.html -->
+{% extends "base.html" %}
+{% block title %}先生アカウント{% endblock %}
+{% block content %}
+<h2>先生アカウント</h2>
 
-<h3>今日の提出状況</h3>
-<table border="1" cellpadding="6">
-  <tr><th>生徒</th><th>状態</th><th>内容</th><th>操作</th></tr>
+<h3>本日分の提出</h3>
+<p>対象日：{{ tdate }}</p>
+<ul>
   {% for e in entries_today %}
-    <tr>
-      <td>{{ e.student }}</td>
-      <td>{{ e.get_status_display }}</td>
-      <td><pre style="white-space:pre-wrap">{{ e.content|truncatechars:100 }}</pre></td>
-      <td>{% if e.status != "READ" %}<a href="{% url 'mark_read' e.id %}">既読にする</a>{% else %}既読済{% endif %}</td>
-    </tr>
-  {% endfor %}
-  {% for s in not_submitted %}
-    <tr><td>{{ s }}</td><td>未提出</td><td>-</td><td>-</td></tr>
-  {% endfor %}
-</table>
-
-<h3>過去記録（担当クラス）</h3>
-<form method="get">
-  <input name="q" placeholder="キーワード検索" value="{{ request.GET.q }}">
-  <button>検索</button>
-</form>
-<table border="1" cellpadding="6">
-  <tr><th>対象日</th><th>生徒</th><th>状態</th><th>内容</th></tr>
-  {% for e in history %}
-    <tr>
-      <td>{{ e.target_date }}</td>
-      <td>{{ e.student }}</td>
-      <td>{{ e.get_status_display }}</td>
-      <td><pre style="white-space:pre-wrap">{{ e.content|truncatechars:120 }}</pre></td>
-    </tr>
+    <li>
+      {{ e.student.user.username }}：{{ e.content|default:"(内容なし)" }}
+      {% if e.is_read %}
+        <span class="liked">👍 いいね済み（{{ e.read_by.username }} / {{ e.read_at|date:"Y-m-d H:i" }}）</span>
+      {% else %}
+        <form method="post" action="{% url 'mark_read' e.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button class="btn" type="submit">&#128077; いいね</button>
+        </form>
+      {% endif %}
+    </li>
   {% empty %}
-    <tr><td colspan="4">記録なし</td></tr>
+    <li>まだ提出はありません</li>
   {% endfor %}
-</table>
+</ul>
+
+<h3>未提出</h3>
+<ul>
+  {% for s in not_submitted %}
+    <li>{{ s.user.username }}（{{ s.class_room.name }}）</li>
+  {% empty %}
+    <li>未提出者はいません</li>
+  {% endfor %}
+</ul>
+
+<h3>履歴（最新200件）</h3>
+<form method="get">
+  <input name="q" value="{{ request.GET.q }}" placeholder="生徒名/内容で検索">
+  <button class="btn" type="submit">検索</button>
+</form>
+<ul>
+  {% for h in history %}
+    <li>
+      {{ h.target_date }} - {{ h.student.user.username }}：{{ h.content|truncatechars:40 }}
+      <form method="post" action="{% url 'mark_read' h.id %}" style="display:inline;">
+        {% csrf_token %}
+        <button class="btn" type="submit">&#128077; いいね</button>
+      </form>
+    </li>
+  {% empty %}
+    <li>履歴はありません</li>
+  {% endfor %}
+</ul>
 {% endblock %}
