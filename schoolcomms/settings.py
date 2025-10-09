@@ -80,6 +80,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                "core.context_processors.home_link",
             ],
         },
     },
@@ -142,6 +143,6 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # 本番: collectstatic 置き場
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ログイン画面情報
-LOGIN_REDIRECT_URL = "/route/"          # ログイン後に飛ぶ場所
+LOGIN_REDIRECT_URL = "home"          # ログイン後に飛ぶ場所
 LOGOUT_REDIRECT_URL = "/accounts/login/"  # ログアウト後の遷移先
 LOGIN_URL = "/accounts/login/"    # ログインが必要なページでリダイレクトされるURL

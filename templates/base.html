@@ -16,19 +16,34 @@
 </head>
 <body>
 <header>
-  <div><a href="{% url 'home' %}">🏫 SchoolComms</a></div>
+  <div>
+    {% if SHOW_HOME_LINK %}
+      {# HOME_URL があればそれを使い、なければ 'home' にフォールバック #}
+      {% if HOME_URL %}
+        <a href="{{ HOME_URL }}">ホームへ戻る</a>
+      {% else %}
+        <a href="{% url 'home' %}">ホームへ戻る</a>
+      {% endif %}
+    {% endif %}
+  </div>
   <div>
     {% if request.user.is_authenticated %}
       ようこそ {{ request.user.username }} |
       <form method="post" action="{% url 'logout' %}" style="display:inline;">
-        {% csrf_token %}
-        <button class="btn" type="submit">ログアウト</button>
+        {% csrf_token %}<button class="btn" type="submit">ログアウト</button>
       </form>
     {% else %}
       <a class="btn" href="{% url 'login' %}">ログイン</a>
     {% endif %}
   </div>
 </header>
+
+{# フラッシュメッセージは共通にすると各ページでの記述が不要に #}
+{% if messages %}
+  <ul class="messages">
+    {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+  </ul>
+{% endif %}
 
 {% block content %}{% endblock %}
 </body>

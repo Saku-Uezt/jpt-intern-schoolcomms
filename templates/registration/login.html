@@ -20,6 +20,8 @@
     <button type="submit">ログイン</button>
   </form>
 
-  <p><a href="/">ホームへ戻る</a></p>
+  {% if user.is_authenticated %}
+    <a href="{% url 'home' %}">ホームへ戻る</a>
+  {% endif %}
 </body>
 </html>

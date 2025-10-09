@@ -3,6 +3,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db import transaction
 
 class Grade(models.Model):
     name = models.CharField(max_length=20)  # 1年,2年...
@@ -23,7 +24,7 @@ class Student(models.Model):
 
 class Entry(models.Model):
     class Status(models.TextChoices):
-        SUBMITTED = "SUBMITTED", "提出済み"
+        SUBMITTED = "SUBMITTED", "未読（提出済み）"
         READ = "READ", "既読"
 
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -38,14 +39,18 @@ class Entry(models.Model):
     class Meta:
         unique_together = ("student", "target_date")  # 同日二重提出を防止
 
+    # 先生の承認とデータの更新メソッド
     def lock_as_read(self, teacher: User):
-        # idempotent（2回押されても安全）
-        if self.read_at:
-            return
-        self.read_by = teacher
-        self.read_at = timezone.now()
-        self.save(update_fields=["read_by", "read_at"])
+        from django.utils import timezone
+        with transaction.atomic():
+            # まだ未読のものだけ更新（レース防止）
+            updated = Entry.objects.filter(pk=self.pk, read_at__isnull=True) \
+                .update(read_by=teacher, read_at=timezone.now(), status=Entry.Status.READ,)
+            if updated:
+                # メモリ上の値も同期
+                self.read_by = teacher
+                self.read_at = timezone.now()
 
     @property
     def is_read(self) -> bool:
-        return bool(self.read_at)
+        return self.read_at is not None

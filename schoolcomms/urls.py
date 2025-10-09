@@ -4,8 +4,8 @@ from core import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # 既存のトップ画面
-    path("", views.home, name="home"),  
+    # 既存のトップ画面（ログイン画面を定義）
+    path("", views.route_after_login, name="home"),
     # ログイン後のルート振り分け
     path("route/", views.route_after_login, name="route_after_login"),
     

@@ -42,10 +42,14 @@
   {% for h in history %}
     <li>
       {{ h.target_date }} - {{ h.student.user.username }}：{{ h.content|truncatechars:40 }}
-      <form method="post" action="{% url 'mark_read' h.id %}" style="display:inline;">
-        {% csrf_token %}
-        <button class="btn" type="submit">&#128077; いいね</button>
-      </form>
+      {% if h.is_read %}
+        <span class="liked">👍 いいね済み（{{ h.read_by.username }} / {{ h.read_at|date:"Y-m-d H:i" }}）</span>
+      {% else %}
+        <form method="post" action="{% url 'mark_read' h.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button class="btn" type="submit">&#128077; いいね</button>
+        </form>
+      {% endif %}
     </li>
   {% empty %}
     <li>履歴はありません</li>
