@@ -1,16 +1,16 @@
 from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import login, logout
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
 from django.db.models import Q
-from .models import Student, Entry, ClassRoom
 from django.contrib.auth.forms import AuthenticationForm
 from django.views.decorators.http import require_POST
-from django.utils import timezone
 from django.db import transaction
 from django.contrib import messages
 from django.urls import reverse
+from .models import Student, Entry, ClassRoom
+from .models import calc_prev_schoolday
 
 def is_in(user, group_name: str) -> bool:
     return user.is_authenticated and user.groups.filter(name=group_name).exists()
@@ -52,14 +52,15 @@ def route_after_login(request):
 
     # 管理者 or 管理権限グループ
     if user.is_superuser or is_in(user, "ADMIN"):
-        # Django標準のユーザー管理画面へ（時間があればダッシュボードを作成予定）
+        # Django標準のユーザー管理画面へリダイレクト（時間があればダッシュボードを作成予定）
         return redirect("/admin/")
     # 権限が先生の場合
     if is_in(user, "TEACHER"):
+        # 先生ダッシュボード画面にリダイレクト処理
         return redirect("teacher_dashboard")
     # 権限が生徒の場合
     elif is_in(user, "STUDENT"):
-        # 学生の連絡帳画面に遷移
+        # 生徒の連絡帳画面へリダイレクト
         return redirect("student_entry_new")
     # 権限が付与されていないユーザーの場合
     return HttpResponseForbidden("権限がありません")
@@ -70,7 +71,7 @@ def student_entry_new(request):
         return HttpResponseForbidden("学生のみ利用可")
 
     student = get_object_or_404(Student, user=request.user)
-    tdate = prev_school_day(timezone.localdate())
+    tdate = calc_prev_schoolday()  
 
     if request.method == "POST":
         content = (request.POST.get("content") or "").strip()
@@ -129,7 +130,7 @@ def teacher_dashboard(request):
         return HttpResponseForbidden("担任のみ利用可")
 
     classes = ClassRoom.objects.filter(homeroom_teacher=request.user)
-    tdate = prev_school_day(timezone.localdate())
+    tdate = calc_prev_schoolday()
 
     students = Student.objects.filter(class_room__in=classes).select_related("user","class_room")
     entries_today = (Entry.objects.filter(student__in=students, target_date=tdate)
