@@ -84,7 +84,7 @@ class Entry(models.Model):
     def clean(self):
         """
         前登校日のデータしか登録できないようサーバー側で検証。
-        祝日・長期休暇はPoCでは考慮不要。
+        長期休暇はPoCでは考慮不要。（祝日はPoC外だが追加実装として反映）
         """
         prev_schoolday = calc_prev_schoolday() 
         if self.target_date != prev_schoolday:

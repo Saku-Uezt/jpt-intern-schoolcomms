@@ -1,4 +1,3 @@
-from datetime import date
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from core.models import  Grade, ClassRoom, Student, Entry, calc_prev_schoolday
@@ -40,6 +39,7 @@ class EntryCleanTests(TestCase):
 
     # 未読状態の際に編集可能状態を返却するテスト
     def test_unread_entry_can_be_edited(self):
-        e = Entry.objects.create(student=self.student, target_date=date(2025,10,10), content="ok")
+        tdate = calc_prev_schoolday() 
+        e = Entry.objects.create(student=self.student, target_date=tdate, content="ok") 
         e.content = "edit ok"
         e.full_clean()
