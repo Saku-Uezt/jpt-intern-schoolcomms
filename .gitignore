@@ -73,3 +73,6 @@ Thumbs.db
 site-packages/
 Lib/
 Scripts/
+
+# 開発環境用データの除外
+core/management/commands/seed_demo.py
