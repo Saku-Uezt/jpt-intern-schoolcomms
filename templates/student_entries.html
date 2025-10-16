@@ -1,0 +1,22 @@
+<!doctype html><html lang="ja"><meta charset="utf-8">
+<body>
+<h1>連絡帳 履歴</h1>
+<ul>
+  {% for e in entries %}
+    <li>
+      {{ e.target_date|date:"Y-m-d" }}：
+      {{ e.content|default:"(内容なし)" }}
+      {% if e.is_read %}
+        <span style="color:#0070f3; font-weight:bold;">👍 いいね済み</span>
+        <small>（{{ e.read_at|date:"Y-m-d H:i" }}）</small>
+      {% else %}
+        <span style="color:#888;">未確認</span>
+      {% endif %}
+    </li>
+  {% empty %}
+    <li>まだ提出はありません</li>
+  {% endfor %}
+</ul>
+  <p><a href="{% url 'student_entry_new' %}">今日の対象日を提出する</a></p>
+</body>
+</html>

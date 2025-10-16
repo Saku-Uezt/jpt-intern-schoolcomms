@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}提出（前登校日）{% endblock %}
+{% block content %}
+  <h2>前登校日分の提出：{{ tdate }}</h2>
+  {% if not entry %}
+    <form method="post">{% csrf_token %}
+      <textarea name="content" rows="8" cols="60" placeholder="連絡帳の内容を入力"></textarea><br>
+      <button type="submit">提出</button>
+    </form>
+  {% elif can_edit %}
+    <form method="post">{% csrf_token %}
+      <textarea name="content" rows="8" cols="60">{{ entry.content }}</textarea><br>
+      <button type="submit">更新して提出</button>
+    </form>
+  {% else %}
+    <p>先生が確認をしたため編集できません。
+      <a href="{% url 'student_entries' %}">履歴を見る</a>
+    </p>
+  {% endif %}
+{% endblock %}

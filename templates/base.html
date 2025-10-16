@@ -1,0 +1,50 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}SchoolComms{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:sans-serif;max-width:960px;margin:24px auto;padding:0 12px;}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    .card{border:1px solid #ddd;border-radius:8px;padding:12px;background:#fafafa}
+    .btn{display:inline-block;padding:6px 10px;border:1px solid #888;border-radius:6px;text-decoration:none}
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<header>
+  <div>
+    {% if SHOW_HOME_LINK %}
+      {# HOME_URL があればそれを使い、なければ 'home' にフォールバック #}
+      {% if HOME_URL %}
+        <a href="{{ HOME_URL }}">ホームへ戻る</a>
+      {% else %}
+        <a href="{% url 'home' %}">ホームへ戻る</a>
+      {% endif %}
+    {% endif %}
+  </div>
+  <div>
+    {% if request.user.is_authenticated %}
+      ようこそ {{ request.user.username }} |
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}<button class="btn" type="submit">ログアウト</button>
+      </form>
+    {% else %}
+      <a class="btn" href="{% url 'login' %}">ログイン</a>
+    {% endif %}
+  </div>
+</header>
+
+{# フラッシュメッセージは共通にすると各ページでの記述が不要に #}
+{% if messages %}
+  <ul class="messages">
+    {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+  </ul>
+{% endif %}
+
+{% block content %}{% endblock %}
+</body>
+</html>
