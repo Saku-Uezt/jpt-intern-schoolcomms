@@ -1,75 +1,98 @@
 # 本番環境用データの投入
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User, Group
 from django.db import transaction
-from faker import Faker
 from core.models import Grade, ClassRoom, Student
 
 class Command(BaseCommand):
-    help = "Seed bulk data: 3 学年 x 3 クラス x 生徒 30 名  = 270"
+    help = "Seed bulk data: grades x classes x students（例: 3 x 3 x 30 = 270生徒）"
 
     def add_arguments(self, parser):
         parser.add_argument("--grades", type=int, default=3)
         parser.add_argument("--classes", type=int, default=3)
         parser.add_argument("--students", type=int, default=30)
-        parser.add_argument("--prefix", type=str, default="demo")  # ユーザー名接頭
+        parser.add_argument("--prefix", type=str, default="demo")  # ユーザー名接頭語
         parser.add_argument("--seed", type=int, default=42)
+        parser.add_argument("--purge", action="store_true",
+                            help="既存データを初期化してから投入する")
 
     @transaction.atomic
     def handle(self, *args, **opts):
+        # Faker は投入時のみ読み込み（本番通常起動へ影響させない）
+        try:
+            from faker import Faker
+        except Exception as e:
+            raise CommandError("Faker が見つかりません。requirements に追加してください。") from e
+
         fake = Faker("ja_JP")
         Faker.seed(opts["seed"])
 
-        # groups
+        # 既存消去（必要なら）
+        if opts["purge"]:
+            # 順序はモデル依存で調整
+            Student.objects.all().delete()
+            ClassRoom.objects.all().delete()
+            Grade.objects.all().delete()
+            # ユーザは prefix で絞って消すと安全
+            User.objects.filter(username__startswith=f"{opts['prefix']}_").delete()
+
+        # groups（先に作ってキャッシュ）
         for g in ["ADMIN", "TEACHER", "STUDENT"]:
             Group.objects.get_or_create(name=g)
-
-        # 既存消さない運用にしたい場合は↑でget_or_createを多用
-        # 必要に応じて一掃するならここで .all().delete() を明示
+        g_teacher = Group.objects.get(name="TEACHER")
+        g_student = Group.objects.get(name="STUDENT")
 
         # 学年
         grades = []
         for gy in range(1, opts["grades"] + 1):
-            grade, _ = Grade.objects.get_or_create(name=f"{gy}年", year=gy)
+            grade, _ = Grade.objects.get_or_create(name=f"{gy}年", defaults={"year": gy})
+            # もし Grade(year) がユニークなら update_or_create(year=gy, defaults={"name": ...}) でもOK
             grades.append(grade)
 
-        # 学年ごとにクラスと先生・生徒を作成
+        # 学年ごとにクラスと教師・生徒
         for grade in grades:
             for c in range(1, opts["classes"] + 1):
-                # 先生
                 t_username = f"{opts['prefix']}_t_{grade.year}{c:02d}"
-                teacher, _ = User.objects.get_or_create(username=t_username, defaults={
-                    "first_name": fake.first_name(),
-                    "last_name": fake.last_name(),
-                    "email": f"{t_username}@example.com",
-                })
-                teacher.set_password("pass1234")
-                teacher.save()
-                teacher.groups.add(Group.objects.get(name="TEACHER"))
+                teacher, created = User.objects.get_or_create(
+                    username=t_username,
+                    defaults={
+                        "first_name": fake.first_name(),
+                        "last_name": fake.last_name(),
+                        "email": f"{t_username}@example.com",
+                    },
+                )
+                if created:
+                    teacher.set_password("pass1234")
+                    teacher.save()
+                    teacher.groups.add(g_teacher)
 
-                # クラス
                 room, _ = ClassRoom.objects.get_or_create(
                     name=f"{grade.year}年{c}組",
                     grade=grade,
                     defaults={"homeroom_teacher": teacher},
                 )
+                # 既存roomの担任を最新にしたいなら:
+                # room.homeroom_teacher = teacher; room.save(update_fields=["homeroom_teacher"])
 
-                # 生徒30人
                 for no in range(1, opts["students"] + 1):
                     s_username = f"{opts['prefix']}_s_{grade.year}{c:02d}{no:02d}"
-                    stu_user, _ = User.objects.get_or_create(username=s_username, defaults={
-                        "first_name": fake.first_name(),
-                        "last_name": fake.last_name(),
-                        "email": f"{s_username}@example.com",
-                    })
-                    stu_user.set_password("pass1234")
-                    stu_user.save()
-                    stu_user.groups.add(Group.objects.get(name="STUDENT"))
+                    stu_user, s_created = User.objects.get_or_create(
+                        username=s_username,
+                        defaults={
+                            "first_name": fake.first_name(),
+                            "last_name": fake.last_name(),
+                            "email": f"{s_username}@example.com",
+                        },
+                    )
+                    if s_created:
+                        stu_user.set_password("pass1234")
+                        stu_user.save()
+                        stu_user.groups.add(g_student)
 
                     Student.objects.get_or_create(
                         user=stu_user,
                         class_room=room,
-                        defaults={"student_no": str(no)}
+                        defaults={"student_no": str(no)},
                     )
 
         self.stdout.write(self.style.SUCCESS("Seeded bulk data successfully."))

@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 """
 Django settings for schoolcomms project.
@@ -26,17 +27,18 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = os.getenv(
-    "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1"
-).split(",")
+_raw_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(",") if h.strip()]
 
 # 逆プロキシで https 経由になる本番などで設定（カンマ区切り）
-_csrf = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
-CSRF_TRUSTED_ORIGINS = [x for x in _csrf.split(",") if x] if _csrf else []
+_raw_csrf = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [x.strip() for x in _raw_csrf.split(",") if x.strip()]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 if not DEBUG:
     #本番用のセキュリティ設定
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -92,10 +94,16 @@ WSGI_APPLICATION = 'schoolcomms.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Azure では DJANGO_DB_PATH が設定されているため /home/data/db.sqlite3 を使用。
+# ローカルでは BASE_DIR/db.sqlite3 にフォールバック。
+if os.getenv("DJANGO_DB_PATH"):
+    DB_PATH = Path(os.getenv("DJANGO_DB_PATH"))
+else:
+    DB_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': DB_PATH,
     }
 }
 
