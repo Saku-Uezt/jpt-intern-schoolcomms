@@ -154,3 +154,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = "home"          # ログイン後に飛ぶ場所
 LOGOUT_REDIRECT_URL = "/accounts/login/"  # ログアウト後の遷移先
 LOGIN_URL = "/accounts/login/"    # ログインが必要なページでリダイレクトされるURL
+
+#ログ出力（本番環境時）
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "[{levelname}] {asctime} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": "/home/LogFiles/django_error.log",
+            "formatter": "verbose",
+        },
+    },
+    "root": {"handlers": ["console", "file"], "level": "INFO"},
+    "loggers": {
+        "django.request": {"handlers": ["console", "file"], "level": "ERROR", "propagate": False},
+        "gunicorn.error": {"handlers": ["console", "file"], "level": "DEBUG", "propagate": False},
+    },
+}

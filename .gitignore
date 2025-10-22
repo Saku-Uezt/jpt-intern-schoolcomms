@@ -76,3 +76,7 @@ Scripts/
 
 # 開発環境用データの除外
 core/management/commands/seed_demo.py
+
+# デプロイ用ZIP
+app.zip
+bk_app.zip

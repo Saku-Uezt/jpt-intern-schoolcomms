@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.urls import reverse
 from .models import Student, Entry, ClassRoom
 from .models import calc_prev_schoolday
+import logging
 
 def is_in(user, group_name: str) -> bool:
     return user.is_authenticated and user.groups.filter(name=group_name).exists()
@@ -28,19 +29,34 @@ def prev_school_day(d: date) -> date:
 #             login(request, u); return redirect("home")
 #     return render(request, "login.html")
 
+#エラー時のロガーを定義
+logger = logging.getLogger(__name__)
 
 # 拡張版ログイン画面（認証時ロールに合わせてリダイレクト）
 def custom_login(request):
-    if request.method == "POST":
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            # 一元ルートへ集約
-            return redirect("route_after_login")
-    else:
-        form = AuthenticationForm()
-    return render(request, "registration/login.html", {"form": form})
+    logger.info("custom_login %s %s", request.method, request.path)
+    try:
+        if request.method == "POST":
+            form = AuthenticationForm(request, data=request.POST)
+            if form.is_valid():
+                user = form.get_user()
+                login(request, user)
+                # 一元ルートへ集約
+                return redirect("home")
+            else:
+                logger.warning("Login form invalid: %s", form.errors)
+        else:
+            form = AuthenticationForm()
+
+        # GET やエラー時もここで描画
+        return render(request, "registration/login.html", {"form": form}) 
+    
+    # 本番環境時のExceptionのロギング処理
+    except Exception as e:
+        # ここで例外の詳細とスタックトレースをログに出す
+        logger.exception("custom_login failed: %s", str(e))
+        # Django が500を返すように再送出
+        raise
 
 def logout_view(request):
     logout(request); return redirect("login")
