@@ -165,15 +165,22 @@ LOGGING = {
     },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
-        "file": {
-            "class": "logging.FileHandler",
-            "filename": "/home/LogFiles/django_error.log",
-            "formatter": "verbose",
-        },
+        # ← 最初は console だけ。file は後で条件付きで追加
     },
-    "root": {"handlers": ["console", "file"], "level": "INFO"},
+    "root": {"handlers": ["console"], "level": "INFO"},
     "loggers": {
-        "django.request": {"handlers": ["console", "file"], "level": "ERROR", "propagate": False},
-        "gunicorn.error": {"handlers": ["console", "file"], "level": "DEBUG", "propagate": False},
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "gunicorn.error": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
 }
+
+# Azure App Service(Linux) 上にあるときだけファイル出力を追加（ローカルにはログファイルがないため定義）
+if os.path.isdir("/home/LogFiles"):
+    LOGGING["handlers"]["file"] = {
+        "class": "logging.FileHandler",
+        "filename": "/home/LogFiles/django_error.log",
+        "formatter": "verbose",
+    }
+    LOGGING["root"]["handlers"].append("file")
+    LOGGING["loggers"]["django.request"]["handlers"].append("file")
+    LOGGING["loggers"]["gunicorn.error"]["handlers"].append("file")

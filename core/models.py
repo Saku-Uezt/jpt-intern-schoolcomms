@@ -7,23 +7,41 @@ from django.db import transaction
 from datetime import date, timedelta
 from django.core.exceptions import ValidationError
 import jpholiday
+import unicodedata
 
 class Grade(models.Model):
     name = models.CharField(max_length=20)  # 1年,2年...
-    year = models.IntegerField()            # 西暦や学年コードなど任意
+    year = models.IntegerField(unique=True) # 西暦や学年コードなど任意（ただし一意）
     def __str__(self): return f"{self.name}"
 
 class ClassRoom(models.Model):
     grade = models.ForeignKey(Grade, on_delete=models.PROTECT)
-    name = models.CharField(max_length=20)  # 1組,2組...
+    name = models.CharField(max_length=20)  # 1年1組,1年2組...（自由記述）
     homeroom_teacher = models.ForeignKey(User, on_delete=models.PROTECT, related_name="homeroom_classes")
-    def __str__(self): return f"{self.grade}-{self.name}"
+
+    def clean(self):
+        # 正規化（空白などを削除する処理）をここで反映
+        if self.name:
+            self.name = unicodedata.normalize('NFKC', self.name).strip()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['grade', 'name'], name='ux_core_classroom_grade_name')  # grade と name の複合ユニーク（同一学年内でクラス名重複を禁止）
+        ]
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     class_room = models.ForeignKey(ClassRoom, on_delete=models.PROTECT)
     student_no = models.CharField(max_length=20)
-    def __str__(self): return f"{self.student_no}:{self.user.get_full_name() or self.user.username}"
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['class_room', 'student_no'], ## class_room と student_no の複合ユニーク（同一クラス内の生徒番号の重複を禁止）
+                name='ux_core_student_class_no'
+            )
+        ]
+        ordering = ['class_room_id', 'student_no']    # クラスID→生徒番号順に昇順並べ替え
 
 # 祝日判定メソッド（weekdayメソッドでは月曜を0、火曜を1…と定義）
 def calc_prev_schoolday(base_date=None):
