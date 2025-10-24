@@ -1,3 +1,8 @@
+**作成日**：2025年10月24日  
+**最終更新日**：2025年10月24日  
+**作成者**：Isaku Uezato
+---
+
 # 🏫 学校連絡帳管理システム 利用マニュアル（簡易版）
 
 ## 1. システム概要
@@ -21,7 +26,7 @@ https://jpt-intern-fyf0b3ebavbufger.japanwest-01.azurewebsites.net
 |------|-----------|------|
 | 生徒 | ・連絡帳の新規提出<br>・連絡帳の更新<br>・過去記録の閲覧 | 先生既読処理後、過去記録は編集不可 |
 | 担任 | ・提出内容の閲覧・既読処理<br>・当日提出状況の確認 | 編集不可 |
-| 管理者 | ・ユーザー作成（生徒・担任）<br>・クラス・学年の登録 | Django管理画面 `/admin/` より操作 |
+| 管理者 | ・ユーザー作成（生徒・担任）<br>・クラスの登録 | Django管理画面 `/admin/` より操作 |
 
 ---
 
@@ -138,7 +143,73 @@ https://jpt-intern-fyf0b3ebavbufger.japanwest-01.azurewebsites.net
 ## 7. 注意事項
 - 提出データは編集不可となります。（既読→未読処理を追加機能として実装予定）
 - 本システムはPoC（概念実証）のため、モバイル環境での最適化は行っていません。  
-- 本番環境URLおよび動作確認IDは評価用に提供します。  
 - データベースは SQLite を使用しています（PoCレベルの軽量DB）。
 - 想定データ件数：生徒270名＋教員9名（投入デモデータ分）。
 - 同時アクセスを伴う大規模運用は対象外です。
+
+## 8. デプロイ手順
+今回の本番環境へのデプロイではAzure CLIを使ったzipデプロイを採用しています。  
+以下にデプロイ手順の概要を記載します。  
+※環境変数などの詳細な設定は複雑であるため、本項では概要のみを記載します。
+
+#### 1. 事前準備
+1. **Azure CLI** をローカル環境にインストールします。  
+   （参考）Microsoft公式ドキュメント：https://learn.microsoft.com/cli/azure/install-azure-cli
+2. Azure CLI にログインします。
+   ```bash
+   az login
+   ```  
+#### 2. デプロイ用ファイルの作成
+GitのHEADブランチからアーカイブを作成します。
+
+```bash
+git archive --format=zip -o app.zip HEAD
+```  
+上記コマンドにより、デプロイ用ファイル app.zip が生成されます。
+
+#### 3. zipデプロイの実行
+Azure CLIで以下のコマンドを実行し、本番環境にデプロイします。
+
+```bash
+az webapp deploy \
+  -g jpt-intern_group \
+  -n jpt-intern \
+  --src-path app.zip \
+  --type zip
+```  
+- `-g` : リソースグループ名  
+- `-n` : Webアプリ名（Azure上のApp Service名）  
+- `--src-path` : デプロイ対象のzipファイルパス  
+- `--type zip` : zipデプロイを指定  
+
+#### 4. データベースのセットアップ
+データベースには SQLite を使用しています。
+アプリケーションのデプロイ後、自動的に `db.sqlite3` が作成・初期化される構成です。
+永続化のため、DB ファイルは `/home/data/db.sqlite3` に配置しています。
+
+1. SSH または Kudu コンソールからサーバーへ接続します。
+2. 以下のコマンドを実行し、マイグレーション（DjangoによるDB構築処理）を適用します。
+   ```bash
+   python manage.py migrate
+   ```  
+
+3. 初期データ（学年・クラス・ユーザー）を投入します。  
+データ投入処理は `seed_bulk.py` に定義されており、下記コマンドにより自動生成されます。
+   ```bash
+   python manage.py seed_bulk --grades 3 --classes 3 --students 30 --prefix demo
+   ```  
+
+4. 必要に応じて、スーパーユーザー（管理者）を作成します。
+   ```bash
+   python manage.py createsuperuser
+   ```  
+
+#### 5. デプロイ後の確認
+- Web アプリの URL にアクセスし、ログイン画面が正常に表示されることを確認します。
+- 管理画面 （`/admin/`） にアクセスし、ユーザー・クラスデータが反映されていることを確認します。
+- 生徒・担任・管理者の各ロールでログインテストを行い、主要機能が動作することを確認します。
+
+#### 備考
+- 本手順は **Azure App Service（Japan West リージョン）** にて検証済みです。
+- デプロイの都度、`migrate` と `collectstatic` の実行が必要となる場合があります。
+- Azure Oryx により自動ビルドが行われるため、Python 環境を手動構築する必要はありません。
