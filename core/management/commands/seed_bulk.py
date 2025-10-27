@@ -1,4 +1,4 @@
-# 本番環境用データの投入
+# 本番環境用データの投入（Fakerを使ってランダムな氏名データを持った教師・生徒ユーザーとクラスを生成する）
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User, Group
 from django.db import transaction
@@ -46,11 +46,11 @@ class Command(BaseCommand):
         grades = []
         for gy in range(1, opts["grades"] + 1):
             grade, _ = Grade.objects.get_or_create(name=f"{gy}年", defaults={"year": gy})
-            # もし Grade(year) がユニークなら update_or_create(year=gy, defaults={"name": ...}) でもOK
             grades.append(grade)
 
         # 学年ごとにクラスと教師・生徒
         for grade in grades:
+            # 教師の生成
             for c in range(1, opts["classes"] + 1):
                 t_username = f"{opts['prefix']}_t_{grade.year}{c:02d}"
                 teacher, created = User.objects.get_or_create(
@@ -65,15 +65,13 @@ class Command(BaseCommand):
                     teacher.set_password("pass1234")
                     teacher.save()
                     teacher.groups.add(g_teacher)
-
+                # クラスの生成
                 room, _ = ClassRoom.objects.get_or_create(
-                    name=f"{grade.year}年{c}組",
+                    name=f"{c}組",
                     grade=grade,
                     defaults={"homeroom_teacher": teacher},
                 )
-                # 既存roomの担任を最新にしたいなら:
-                # room.homeroom_teacher = teacher; room.save(update_fields=["homeroom_teacher"])
-
+                # 生徒ユーザーの生成
                 for no in range(1, opts["students"] + 1):
                     s_username = f"{opts['prefix']}_s_{grade.year}{c:02d}{no:02d}"
                     stu_user, s_created = User.objects.get_or_create(

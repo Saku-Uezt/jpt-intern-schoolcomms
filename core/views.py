@@ -142,16 +142,21 @@ def student_entries(request):
 
 @login_required
 def teacher_dashboard(request):
+    # 先生（担任）以外は利用不可
     if not is_in(request.user, "TEACHER"):
         return HttpResponseForbidden("担任のみ利用可")
 
+    # 担任に紐づくクラスの生徒のみ、本日提出分（前日の連絡帳）を表示する
     classes = ClassRoom.objects.filter(homeroom_teacher=request.user)
-    tdate = calc_prev_schoolday()
+    tdate = calc_prev_schoolday() # 例：月曜アクセス→金曜の日付
 
     students = Student.objects.filter(class_room__in=classes).select_related("user","class_room")
     entries_today = (Entry.objects.filter(student__in=students, target_date=tdate)
                      .select_related("student","student__user","student__class_room"))
 
+    # entries_today の各エントリ(e)をキー化して提出/未提出の生徒を判定
+    # by_student = {e.student_id: e for e in entries_today}
+    # not_submitted = [s for s in students if s.id not in by_student]
     by_student = {e.student_id: e for e in entries_today}
     not_submitted = [s for s in students if s.id not in by_student]
 
@@ -159,6 +164,8 @@ def teacher_dashboard(request):
                .select_related("student","student__user","student__class_room")
                .order_by("-target_date"))
 
+    # テンプレートから渡された検索キーワード(q)をもとに、
+    # 入力内容・ユーザーID・氏名・生徒番号のいずれかに部分一致する履歴を絞り込み
     q = request.GET.get("q")
     if q:
         history = history.filter(
@@ -169,6 +176,7 @@ def teacher_dashboard(request):
             Q(student__student_no__icontains=q)
         )
 
+    # 履歴（本日提出済み分・未提出分・新しい順に200件）※テンプレの表示仕様に合わせる
     return render(request, "teacher_dashboard.html", {
         "tdate": tdate,
         "entries_today": entries_today,

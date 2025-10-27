@@ -9,11 +9,14 @@ from django.core.exceptions import ValidationError
 import jpholiday
 import unicodedata
 
+# 学年登録クラス
 class Grade(models.Model):
     name = models.CharField(max_length=20)  # 1年,2年...
     year = models.IntegerField(unique=True) # 西暦や学年コードなど任意（ただし一意）
-    def __str__(self): return f"{self.name}"
-
+    def __str__(self):
+        return f"{self.name}"
+    
+# 学級クラス登録クラス
 class ClassRoom(models.Model):
     grade = models.ForeignKey(Grade, on_delete=models.PROTECT)
     name = models.CharField(max_length=20)  # 1年1組,1年2組...（自由記述）
@@ -28,7 +31,13 @@ class ClassRoom(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['grade', 'name'], name='ux_core_classroom_grade_name')  # grade と name の複合ユニーク（同一学年内でクラス名重複を禁止）
         ]
+    
+    def __str__(self):
+        # 例: "3年 3組" のように読みやすく
+        return f"{self.grade} {self.name}"
 
+
+# 生徒登録クラス
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     class_room = models.ForeignKey(ClassRoom, on_delete=models.PROTECT)
@@ -41,9 +50,11 @@ class Student(models.Model):
                 name='ux_core_student_class_no'
             )
         ]
-        ordering = ['class_room_id', 'student_no']    # クラスID→生徒番号順に昇順並べ替え
+    def __str__(self):
+        # 例: "3年 3組 1番 ○○（氏名）"
+        return f"{self.class_room} {self.student_no}番 {self.user.last_name}{self.user.first_name}"
 
-# 祝日判定メソッド（weekdayメソッドでは月曜を0、火曜を1…と定義）
+# 祝日判定メソッド（weekdayメソッドでは月曜を0、火曜を1…と定義）※課題2要素
 def calc_prev_schoolday(base_date=None):
     d = base_date or timezone.localdate()
     d -= timedelta(days=1)
@@ -52,6 +63,7 @@ def calc_prev_schoolday(base_date=None):
         d -= timedelta(days=1)
     return d
 
+# 連絡帳登録クラス
 class Entry(models.Model):
     class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", "未読（提出済み）"
@@ -67,6 +79,7 @@ class Entry(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name_plural = "Entries" #Djangoが命名したスペルミスを修正
         unique_together = ("student", "target_date")  # 同日二重提出を防止
         ordering = ["-target_date"]
 
@@ -89,7 +102,7 @@ class Entry(models.Model):
 
     # ---------- 機能②：未読に戻す（課題2用） ----------
     def unlock_as_unread(self):
-        """担任が既読を取り消す処理（課題2改善要素）"""
+        """管理者が既読を取り消す処理（課題2改善要素）"""
         with transaction.atomic():
             Entry.objects.filter(pk=self.pk).update(
                 read_by=None, read_at=None, status=Entry.Status.SUBMITTED
@@ -108,7 +121,7 @@ class Entry(models.Model):
         if self.target_date != prev_schoolday:
             raise ValidationError({"target_date": f"提出日は前登校日（{prev_schoolday}）のみ登録可能です。"})
 
-        # 既読済みデータは内容更新不可
+        # 既読済みデータは内容更新不可（サーバー側でDBの書き換えを制御、セキュアな実装を目的）
         if self.pk and self.is_read:
             raise ValidationError("既読済みの記録は編集できません。")
 
@@ -117,6 +130,9 @@ class Entry(models.Model):
         return self.read_at is not None
 
     def __str__(self):
-        status_label = "✔" if self.is_read else "…"
-        return f"{self.student} {self.target_date} [{status_label}]"
-
+        """
+        表示例:
+        3年3組 1番 demo_s_10101 - 2025-10-24
+        """
+        student = self.student
+        return f"{student.class_room} {student.student_no}番 {student.user.username} - {self.target_date}"

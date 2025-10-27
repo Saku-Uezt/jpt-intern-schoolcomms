@@ -1,4 +1,3 @@
-<!-- templates/teacher_dashboard.html -->
 {% extends "base.html" %}
 {% block title %}先生アカウント{% endblock %}
 {% block content %}
@@ -9,9 +8,22 @@
 <ul>
   {% for e in entries_today %}
     <li>
-      {{ e.student.user.username }}：{{ e.content|default:"(内容なし)" }}
+      {% if e.student.user.last_name or e.student.user.first_name %}
+        {{ e.student.user.last_name }}{{ e.student.user.first_name }}
+      {% else %}
+        {{ e.student.user.username }}
+      {% endif %}
+      ：{{ e.content|default:"(内容なし)" }}
       {% if e.is_read %}
-        <span class="liked">👍 いいね済み（{{ e.read_by.username }} / {{ e.read_at|date:"Y-m-d H:i" }}）</span>
+        <span class="liked">
+          👍 いいね済み（
+          {% if e.read_by.last_name or e.read_by.first_name %}
+            {{ e.read_by.last_name }}{{ e.read_by.first_name }}
+          {% else %}
+            {{ e.read_by.username }}
+          {% endif %}
+          / {{ e.read_at|date:"Y-m-d H:i" }}）
+        </span>
       {% else %}
         <form method="post" action="{% url 'mark_read' e.id %}" style="display:inline;">
           {% csrf_token %}
@@ -27,7 +39,15 @@
 <h3>未提出</h3>
 <ul>
   {% for s in not_submitted %}
-    <li>{{ s.user.username }}（{{ s.class_room.name }}）</li>
+    <li>
+      
+      {% if s.user.last_name or s.user.first_name %}
+        {{ s.user.last_name }}{{ s.user.first_name }}
+      {% else %}
+        {{ s.user.username }}
+      {% endif %}
+      （{{ s.class_room.name }}）
+    </li>
   {% empty %}
     <li>未提出者はいません</li>
   {% endfor %}
@@ -35,20 +55,32 @@
 
 <h3>履歴（最新200件）</h3>
 <form method="get">
+  <!-- 日付・ユーザーID・氏名・内容で絞り込み検索可（qをviewsに渡してフィルタ処理） -->
   <input name="q" value="{{ request.GET.q }}" placeholder="生徒名/内容で検索">
   <button class="btn" type="submit">検索</button>
 </form>
 <ul>
   {% for h in history %}
     <li>
-      {{ h.target_date }} - {{ h.student.user.username }}：{{ h.content|truncatechars:40 }}
-      {% if h.is_read %}
-        <span class="liked">👍 いいね済み（{{ h.read_by.username }} / {{ h.read_at|date:"Y-m-d H:i" }}）</span>
+      {{ h.target_date }} -
+      {% if h.student.user.last_name or h.student.user.first_name %}
+        {{ h.student.user.last_name }}{{ h.student.user.first_name }}
       {% else %}
-        <form method="post" action="{% url 'mark_read' h.id %}" style="display:inline;">
-          {% csrf_token %}
-          <button class="btn" type="submit">&#128077; いいね</button>
-        </form>
+        {{ h.student.user.username }}
+      {% endif %}
+      ：{{ h.content|truncatechars:40 }}
+      {% if h.is_read %}
+        <span class="liked">
+          👍 いいね済み（
+          {% if h.read_by.last_name or h.read_by.first_name %}
+            {{ h.read_by.last_name }}{{ h.read_by.first_name }}
+          {% else %}
+            {{ h.read_by.username }}
+          {% endif %}
+          / {{ h.read_at|date:"Y-m-d H:i" }}）
+        </span>
+      {% else %}
+        <span class="unliked">未確認</span>
       {% endif %}
     </li>
   {% empty %}

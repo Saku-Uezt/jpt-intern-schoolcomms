@@ -1,11 +1,30 @@
-{# templates/admin/core/entry/change_form.html #}
 {% extends "admin/change_form.html" %}
-
 {% block submit_buttons_bottom %}
   {{ block.super }}
-  <button type="submit" name="_unread"
-          class="button"
-          style="background:#ba2121;border-color:#a41515;color:#fff;">
-    未読に戻す
-  </button>
+
+  <style>
+    /* 未読リンク用の行を左寄せに */
+    .submit-row.unread-row {
+      text-align: left !important;
+    }
+    /* deletelink はデフォで float:right; なので解除する */
+    .submit-row.unread-row .unread-link.deletelink {
+      float: none !important;
+      display: inline-block;
+      margin-left: 0;
+    }
+  </style>
+
+  {# 未読戻し用のPOSTフォーム（非表示） #}
+  <form id="unread-form" method="post" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="_unread" value="1">
+  </form>
+
+  <div class="submit-row unread-row">
+    <a href="#" class="deletelink unread-link"
+       onclick="document.getElementById('unread-form').submit(); return false;">
+      未読に戻す
+    </a>
+  </div>
 {% endblock %}
