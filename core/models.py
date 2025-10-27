@@ -65,9 +65,26 @@ def calc_prev_schoolday(base_date=None):
 
 # 連絡帳登録クラス
 class Entry(models.Model):
+    # 既読/未読
     class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", "未読（提出済み）"
         READ = "READ", "既読"
+    
+    # 体調
+    class HealthScale(models.IntegerChoices):
+        VERY_BAD = 1, "とてもわるい"
+        BAD      = 2, "わるい"
+        NORMAL   = 3, "ふつう"
+        GOOD     = 4, "よい"
+        GREAT    = 5, "とてもよい"
+
+    # メンタル
+    class MentalScale(models.IntegerChoices):
+        VERY_LOW  = 1, "とても落ち込み気味"
+        LOW       = 2, "やや不調"
+        NORMAL    = 3, "ふつう"
+        HIGH      = 4, "やや前向き"
+        VERY_HIGH = 5, "とても前向き"
 
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     target_date = models.DateField()
@@ -77,11 +94,38 @@ class Entry(models.Model):
     read_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.PROTECT, related_name="read_entries")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    condition = models.PositiveSmallIntegerField(
+        choices=HealthScale.choices,
+        default=HealthScale.NORMAL,
+        verbose_name="体調"
+    )
+    mental = models.PositiveSmallIntegerField(
+        choices=MentalScale.choices,
+        default=MentalScale.NORMAL,
+        verbose_name="メンタル"
+    )
 
     class Meta:
         verbose_name_plural = "Entries" #Djangoが命名したスペルミスを修正
-        unique_together = ("student", "target_date")  # 同日二重提出を防止
         ordering = ["-target_date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "target_date"],
+                name="core_entry_student_date_uniq",
+            ),
+            models.CheckConstraint(
+                check=models.Q(condition__gte=1) & models.Q(condition__lte=5),
+                name="core_entry_condition_range",
+            ),
+            models.CheckConstraint(
+                check=models.Q(mental__gte=1) & models.Q(mental__lte=5),
+                name="core_entry_mental_range",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["student", "-target_date"], name="idx_entry_stu_date_desc"),
+            models.Index(fields=["read_by"], name="idx_entry_read_by"),
+        ]
 
     # ---------- 機能①：既読ロック ----------
     def lock_as_read(self, teacher: User):

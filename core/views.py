@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
+from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Concat
 from django.contrib.auth.forms import AuthenticationForm
 from django.views.decorators.http import require_POST
 from django.db import transaction
@@ -92,6 +94,17 @@ def student_entry_new(request):
     if request.method == "POST":
         content = (request.POST.get("content") or "").strip()
 
+        # 数値化 + 1..5 に丸め（不正値はデフォルト3に）
+        def _to_scale(v):
+            try:
+                n = int(v)
+                return n if 1 <= n <= 5 else 3
+            except (TypeError, ValueError):
+                return 3
+
+        condition = _to_scale(request.POST.get("condition"))
+        mental    = _to_scale(request.POST.get("mental"))
+
         # 競合対策：最新状態でロックして取得（管理画面の操作と衝突しにくくする）
         with transaction.atomic():
             entry = (Entry.objects
@@ -106,14 +119,23 @@ def student_entry_new(request):
                 else:
                     # 未読（提出済）なら上書きOK
                     entry.content = content
+                    entry.condition = condition
+                    entry.mental    = mental
+                    fields = ["content", "condition", "mental"]
                     # statusを併用しているなら未読＝提出済みに同期しておく
                     if hasattr(Entry, "Status"):
                         entry.status = Entry.Status.SUBMITTED
-                    entry.save(update_fields=["content"] + (["status"] if hasattr(Entry, "Status") else []))
+                        fields.append("status")
+                    entry.save(update_fields=fields)
                     messages.success(request, "提出を更新しました。")
             else:
                 # まだ当日（前登校日）分が無ければ新規作成
-                kwargs = dict(student=student, target_date=tdate, content=content)
+                kwargs = dict(student=student, 
+                              target_date=tdate, 
+                              content=content,
+                              condition=condition,
+                              mental=mental,
+                              )
                 if hasattr(Entry, "Status"):
                     kwargs["status"] = Entry.Status.SUBMITTED
                 Entry.objects.create(**kwargs)
@@ -148,11 +170,13 @@ def teacher_dashboard(request):
 
     # 担任に紐づくクラスの生徒のみ、本日提出分（前日の連絡帳）を表示する
     classes = ClassRoom.objects.filter(homeroom_teacher=request.user)
-    tdate = calc_prev_schoolday() # 例：月曜アクセス→金曜の日付
+    tdate = calc_prev_schoolday()  # 例：月曜アクセス→金曜
 
-    students = Student.objects.filter(class_room__in=classes).select_related("user","class_room")
-    entries_today = (Entry.objects.filter(student__in=students, target_date=tdate)
-                     .select_related("student","student__user","student__class_room"))
+    students = Student.objects.filter(class_room__in=classes) \
+                              .select_related("user", "class_room")
+
+    entries_today = Entry.objects.filter(student__in=students, target_date=tdate) \
+                                 .select_related("student", "student__user", "student__class_room")
 
     # entries_today の各エントリ(e)をキー化して提出/未提出の生徒を判定
     # by_student = {e.student_id: e for e in entries_today}
@@ -160,13 +184,13 @@ def teacher_dashboard(request):
     by_student = {e.student_id: e for e in entries_today}
     not_submitted = [s for s in students if s.id not in by_student]
 
-    history = (Entry.objects.filter(student__in=students)
-               .select_related("student","student__user","student__class_room")
-               .order_by("-target_date"))
+    # 履歴ベースのクエリセット
+    history = Entry.objects.filter(student__in=students) \
+                           .select_related("student", "student__user", "student__class_room")
 
     # テンプレートから渡された検索キーワード(q)をもとに、
     # 入力内容・ユーザーID・氏名・生徒番号のいずれかに部分一致する履歴を絞り込み
-    q = request.GET.get("q")
+    q = (request.GET.get("q") or "").strip()
     if q:
         history = history.filter(
             Q(content__icontains=q) |
@@ -176,12 +200,29 @@ def teacher_dashboard(request):
             Q(student__student_no__icontains=q)
         )
 
-    # 履歴（本日提出済み分・未提出分・新しい順に200件）※テンプレの表示仕様に合わせる
+    # 生徒タイムライン（sid）の構築
+    sid_raw = request.GET.get("sid")
+    try:
+        sid = int(sid_raw) if sid_raw is not None else None
+    except (TypeError, ValueError):
+        sid = None
+
+    selected_student = None # 変数定義と初期化
+
+    if sid and students.filter(id=sid).exists():
+        history = history.filter(student_id=sid)
+        # 表示用に対象生徒を取得
+        selected_student = students.select_related("user").get(id=sid)
+
+    # 並び安定化 → スライス
+    history = history.order_by("-target_date", "-id")[:200]
+
     return render(request, "teacher_dashboard.html", {
         "tdate": tdate,
         "entries_today": entries_today,
         "not_submitted": not_submitted,
-        "history": history[:200],
+        "history": history,
+        "selected_student": selected_student,
     })
 
 @login_required

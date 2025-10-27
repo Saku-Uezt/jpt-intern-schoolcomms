@@ -8,12 +8,19 @@
 <ul>
   {% for e in entries_today %}
     <li>
-      {% if e.student.user.last_name or e.student.user.first_name %}
-        {{ e.student.user.last_name }}{{ e.student.user.first_name }}
-      {% else %}
-        {{ e.student.user.username }}
-      {% endif %}
-      ：{{ e.content|default:"(内容なし)" }}
+      {# 氏名クリックでその生徒のタイムラインへ（qがあれば引き継ぐ） #}
+      <a href="?sid={{ e.student_id }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+        {% if e.student.user.last_name or e.student.user.first_name %}
+          {{ e.student.user.last_name }}{{ e.student.user.first_name }}
+        {% else %}
+          {{ e.student.user.username }}
+        {% endif %}
+      </a>
+      <span class="meta">
+        <br>体調：{{ e.get_condition_display }}　
+        メンタル：{{ e.get_mental_display }}　<br>
+      </span>
+      連絡内容：{{ e.content|default:"(内容なし)" }}
       {% if e.is_read %}
         <span class="liked">
           👍 いいね済み（
@@ -40,12 +47,13 @@
 <ul>
   {% for s in not_submitted %}
     <li>
-      
-      {% if s.user.last_name or s.user.first_name %}
-        {{ s.user.last_name }}{{ s.user.first_name }}
-      {% else %}
-        {{ s.user.username }}
-      {% endif %}
+      <a href="?sid={{ s.id }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+        {% if s.user.last_name or s.user.first_name %}
+          {{ s.user.last_name }}{{ s.user.first_name }}
+        {% else %}
+          {{ s.user.username }}
+        {% endif %}
+      </a>
       （{{ s.class_room.name }}）
     </li>
   {% empty %}
@@ -53,22 +61,46 @@
   {% endfor %}
 </ul>
 
-<h3>履歴（最新200件）</h3>
+<h3 id="history-section">履歴（最新200件）</h3>
+
+{# タイムライン中はバッジと「全履歴表示に戻る」リンク #}
+{% if selected_student %}
+ <p>表示中：
+    {% if selected_student.user.last_name or selected_student.user.first_name %}
+      {{ selected_student.user.last_name }}{{ selected_student.user.first_name }}
+    {% else %}
+      {{ selected_student.user.username }}
+    {% endif %}さんのタイムライン（直近200件）
+    <a class="btn" href="{% url 'teacher_dashboard' %}{% if request.GET.q %}?q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+      全履歴表示に戻る
+    </a>
+  </p>
+{% endif %}
+
 <form method="get">
   <!-- 日付・ユーザーID・氏名・内容で絞り込み検索可（qをviewsに渡してフィルタ処理） -->
   <input name="q" value="{{ request.GET.q }}" placeholder="生徒名/内容で検索">
+  {# タイムライン状態を保って検索する用の hidden #}
+  {% if request.GET.sid %}<input type="hidden" name="sid" value="{{ request.GET.sid }}">{% endif %}
   <button class="btn" type="submit">検索</button>
 </form>
+
 <ul>
   {% for h in history %}
     <li>
       {{ h.target_date }} -
-      {% if h.student.user.last_name or h.student.user.first_name %}
-        {{ h.student.user.last_name }}{{ h.student.user.first_name }}
-      {% else %}
-        {{ h.student.user.username }}
-      {% endif %}
-      ：{{ h.content|truncatechars:40 }}
+      <a href="?sid={{ h.student_id }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+        {% if h.student.user.last_name or h.student.user.first_name %}
+          {{ h.student.user.last_name }}{{ h.student.user.first_name }}
+        {% else %}
+          {{ h.student.user.username }}
+        {% endif %}
+      </a>
+      <span class="meta">
+        <br>体調：{{ h.get_condition_display }}　
+        メンタル：{{ h.get_mental_display }}　<br>
+      </span>
+      連絡内容：{{ h.content|truncatechars:40 }}
       {% if h.is_read %}
         <span class="liked">
           👍 いいね済み（
