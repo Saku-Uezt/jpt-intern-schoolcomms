@@ -16,6 +16,7 @@
           {{ e.student.user.username }}
         {% endif %}
       </a>
+      （{{ e.student.class_room.grade.name|default:"" }}{{ e.student.class_room.name|default:"" }}）
       <span class="meta">
         <br>体調：{{ e.get_condition_display }}　
         メンタル：{{ e.get_mental_display }}　<br>
@@ -54,7 +55,7 @@
           {{ s.user.username }}
         {% endif %}
       </a>
-      （{{ s.class_room.name }}）
+      （{{ s.class_room.grade.name }}{{ s.class_room.name }}）
     </li>
   {% empty %}
     <li>未提出者はいません</li>
@@ -96,6 +97,7 @@
           {{ h.student.user.username }}
         {% endif %}
       </a>
+      （{{ h.student.class_room.grade.name|default:"" }}{{ h.student.class_room.name|default:"" }}）
       <span class="meta">
         <br>体調：{{ h.get_condition_display }}　
         メンタル：{{ h.get_mental_display }}　<br>
