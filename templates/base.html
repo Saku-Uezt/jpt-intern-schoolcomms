@@ -19,9 +19,9 @@
     {% if SHOW_HOME_LINK %}
       <!-- HOME_URL があればそれを使い、なければ '/home/' にフォールバック -->
       {% if HOME_URL %}
-        <a href="{{ HOME_URL }}">ホームへ戻る</a>
+        <a href="{{ HOME_URL }}">{{ HOME_LABEL|default:"ホームへ戻る" }}</a>
       {% else %}
-        <a href="{% url 'home' %}">ホームへ戻る</a>
+        <a href="{% url 'home' %}">{{ HOME_LABEL|default:"ホームへ戻る" }}</a>
       {% endif %}
     {% endif %}
   </div>

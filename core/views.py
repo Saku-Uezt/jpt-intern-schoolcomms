@@ -152,6 +152,9 @@ def student_entry_new(request):
         "tdate": tdate,
         "entry": entry,
         "can_edit": can_edit,
+        "SHOW_HOME_LINK": True,
+        "HOME_URL": reverse("student_entries"),
+        "HOME_LABEL": "連絡帳履歴に移動",
     })
 
 @login_required
