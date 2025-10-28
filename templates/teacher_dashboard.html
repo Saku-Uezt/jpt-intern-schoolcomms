@@ -114,7 +114,16 @@
           / {{ h.read_at|date:"Y-m-d H:i" }}）
         </span>
       {% else %}
-        <span class="unliked">未確認</span>
+        <form method="post" action="{% url 'mark_read' h.id %}" style="display:inline;">
+          {% csrf_token %}
+          {# 戻り先（タイムライン状態や検索条件を維持して履歴見出しへ） #}
+          <input type="hidden" name="next"
+            value="{% url 'teacher_dashboard' %}{% if request.GET.sid or request.GET.q %}?{% endif %}
+                  {% if request.GET.sid %}sid={{ request.GET.sid }}{% endif %}
+                  {% if request.GET.sid and request.GET.q %}&{% endif %}
+                  {% if request.GET.q %}q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+          <button class="btn" type="submit">&#128077; いいね</button>
+        </form>
       {% endif %}
     </li>
   {% empty %}
