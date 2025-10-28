@@ -1,0 +1,62 @@
+{% load i18n admin_urls %}
+<style>
+  /* 1行に左右分割して配置 */
+  .entry-submit-row {
+    display: flex;
+    justify-content: space-between; /* 左: 未読+保存群 / 右: 削除 */
+    align-items: center;
+    gap: .5rem;
+  }
+  .entry-submit-left,
+  .entry-submit-right {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  /* --- 未読ボタン（赤） --- */
+  .entry-submit-left input[name="_unread"] {
+    padding: 6px 12px;
+    border: 1px solid #ac2925;
+    border-radius: 4px;
+    background: #c9302c;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .entry-submit-left input[name="_unread"]:hover {
+    background: #c9302c;
+    border-color: #ac2925;
+  }
+
+  /* 右側の削除リンク（既定の赤を維持） */
+  .entry-submit-right .deletelink-box {
+    margin: 0;
+  }
+</style>
+
+<div class="submit-row entry-submit-row">
+  <!-- 左端：未読 → 保存系（指定順） -->
+  <div class="entry-submit-left">
+    <input type="submit" name="_unread" value="{% trans '未読に戻す' %}">
+    {% if show_save_and_add_another %}
+      <input type="submit" value="{% trans '保存してもう一つ追加' %}" name="_addanother">
+    {% endif %}
+    {% if show_save_and_continue %}
+      <input type="submit" value="{% trans '保存して編集を続ける' %}" name="_continue">
+    {% endif %}
+    {% if show_save %}
+      <input type="submit" value="{% trans '保存' %}" class="default" name="_save">
+    {% endif %}
+  </div>
+
+  <!-- 右端：削除 -->
+  <div class="entry-submit-right">
+    {% if show_delete_link %}
+      {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
+      <p class="deletelink-box">
+        <a href="{{ delete_url }}" class="deletelink">{% trans "削除" %}</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
