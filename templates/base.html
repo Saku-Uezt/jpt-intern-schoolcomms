@@ -45,9 +45,16 @@
 
 {# フラッシュメッセージは共通にすると各ページでの記述が不要に #}
 {% if messages %}
-  <ul class="messages">
-    {% for m in messages %}<li>{{ m }}</li>{% endfor %}
-  </ul>
+<div style="max-width:960px;margin:16px auto 0;padding:0 12px;">
+  {% for message in messages %}
+    <div role="status" aria-live="polite"
+         class="alert {{ message.tags }}"
+         style="margin:8px 0;padding:10px 12px;border-radius:8px;
+                border:1px solid #b8f0cf;background:#e8fff1;color:#135f3d;">
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
 {% endif %}
 
 {% block content %}{% endblock %}

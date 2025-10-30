@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}提出（前登校日）{% endblock %}
 {% block content %}
-  <h2>前登校日分の提出：{{ tdate }}</h2>
+  <h2>前登校日分の提出：{{ tdate_label }}</h2>
   {% if not entry %}
     <form method="post">{% csrf_token %}
       <label>体調：</label>
@@ -26,6 +26,9 @@
 
       <textarea name="content" rows="8" cols="60" placeholder="連絡帳の内容を入力"></textarea><br>
       <button type="submit">提出</button>
+      <p style="margin-top:6px;font-size:12px;color:#666;">
+        ※提出後は担任の確認（既読）まで編集できます
+      </p>
     </form>
   {% elif can_edit %}
     <form method="post">{% csrf_token %}
@@ -51,6 +54,9 @@
 
       <textarea name="content" rows="8" cols="60">{{ entry.content }}</textarea><br>
       <button type="submit">更新して提出</button>
+      <p style="margin-top:6px;font-size:12px;color:#666;">
+        ※担任の確認（既読）までは再編集できます
+      </p>
     </form>
   {% else %}
     <p>先生が確認をしたため編集できません。

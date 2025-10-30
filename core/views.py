@@ -90,6 +90,9 @@ def student_entry_new(request):
 
     student = get_object_or_404(Student, user=request.user)
     tdate = calc_prev_schoolday()  
+    # 曜日ラベル（0=月 ... 6=日）
+    weekday = "月火水木金土日"[tdate.weekday()]
+    tdate_label = f"{tdate.year}年{tdate.month}月{tdate.day}日（{weekday}）"
 
     if request.method == "POST":
         content = (request.POST.get("content") or "").strip()
@@ -127,7 +130,7 @@ def student_entry_new(request):
                         entry.status = Entry.Status.SUBMITTED
                         fields.append("status")
                     entry.save(update_fields=fields)
-                    messages.success(request, "提出を更新しました。")
+                    messages.success(request, "✅提出を更新しました。")
             else:
                 # まだ当日（前登校日）分が無ければ新規作成
                 kwargs = dict(student=student, 
@@ -139,7 +142,7 @@ def student_entry_new(request):
                 if hasattr(Entry, "Status"):
                     kwargs["status"] = Entry.Status.SUBMITTED
                 Entry.objects.create(**kwargs)
-                messages.success(request, "提出しました。")
+                messages.success(request, "✅提出が完了しました。")
 
         # PRG（Post→Redirect→Get）：二重送信防止＆最新状態で再描画
         return redirect(reverse("student_entry_new"))
@@ -150,6 +153,7 @@ def student_entry_new(request):
 
     return render(request, "student_entry_new.html", {
         "tdate": tdate,
+        "tdate_label": tdate_label,
         "entry": entry,
         "can_edit": can_edit,
         "SHOW_HOME_LINK": True,
