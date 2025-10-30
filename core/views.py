@@ -18,9 +18,10 @@ import logging
 def is_in(user, group_name: str) -> bool:
     return user.is_authenticated and user.groups.filter(name=group_name).exists()
 
-def prev_school_day(d: date) -> date:
-    #前登校日を返す（週明け月曜は金曜に戻す）
-    return d - timedelta(days=3) if d.weekday() == 0 else d - timedelta(days=1)
+# ※ 旧ロジック（models.py 側に統合済のためコメントアウト）
+# def prev_school_day(d: date) -> date:
+#     #前登校日を返す（週明け月曜は金曜に戻す）
+#     return d - timedelta(days=3) if d.weekday() == 0 else d - timedelta(days=1)
 
 
 # 標準のログイン画面（使用しないため念のためコメントアウト）
