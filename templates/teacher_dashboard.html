@@ -76,15 +76,13 @@
 {% endif %}
 
 {# タイムライン中はバッジと「全履歴表示に戻る」リンク #}
-{% if selected_student %}
- <p>表示中：
-    {% if selected_student.user.last_name or selected_student.user.first_name %}
-      {{ selected_student.user.last_name }}{{ selected_student.user.first_name }}
-    {% else %}
-      {{ selected_student.user.username }}
-    {% endif %}さんのタイムライン（直近200件）
-    <a class="btn" href="{% url 'teacher_dashboard' %}#history-section">全履歴表示に戻る</a>
-  </p>
+{% if request.GET.q or request.GET.sid %}
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('history-section');
+    if (el && el.scrollIntoView) el.scrollIntoView({block:'start'});
+  });
+</script>
 {% endif %}
 
 <form method="get">
