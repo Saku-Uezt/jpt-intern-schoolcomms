@@ -199,13 +199,22 @@ def teacher_dashboard(request):
     # 入力内容・ユーザーID・氏名・生徒番号のいずれかに部分一致する履歴を絞り込み
     q = (request.GET.get("q") or "").strip()
     if q:
-        history = history.filter(
-            Q(content__icontains=q) |
-            Q(student__user__username__icontains=q) |
-            Q(student__user__first_name__icontains=q) |
-            Q(student__user__last_name__icontains=q) |
-            Q(student__student_no__icontains=q)
-        )
+        # 全角/半角スペースを除去した検索語（例：「山田　太郎」「山田太郎」どちらもOKに）
+        q_compact = q.replace(" ", "").replace("　", "")
+
+        history = history.annotate(
+            full_name_lf=Concat("student__user__last_name", "student__user__first_name"),
+            full_name_fl=Concat("student__user__first_name", "student__user__last_name"),
+            ).filter(
+                Q(content__icontains=q) |
+                Q(student__user__username__icontains=q) |
+                Q(student__user__first_name__icontains=q) |
+                Q(student__user__last_name__icontains=q) |
+                Q(student__student_no__icontains=q) |
+                # フルネーム（空白無し）での部分一致
+                Q(full_name_lf__icontains=q_compact) |
+                Q(full_name_fl__icontains=q_compact)
+            )
 
     # 生徒タイムライン（sid）の構築
     sid_raw = request.GET.get("sid")

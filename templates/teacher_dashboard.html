@@ -18,8 +18,12 @@
       </a>
       （{{ e.student.class_room.grade.name|default:"" }}{{ e.student.class_room.name|default:"" }}）
       <span class="meta">
-        <br>体調：{{ e.get_condition_display }}　
-        メンタル：{{ e.get_mental_display }}　<br>
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ff;color:#134f84;font-size:12px;">
+          体調：{{ e.get_condition_display }}
+        </span>
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f7f2ff;color:#4a2a85;font-size:12px;margin-left:6px;">
+          メンタル：{{ e.get_mental_display }}
+        </span>
       </span>
       連絡内容：{{ e.content|default:"(内容なし)" }}
       {% if e.is_read %}
@@ -64,6 +68,13 @@
 
 <h3 id="history-section">履歴（最新200件）</h3>
 
+{# 検索結果表示中のみ「全履歴表示に戻る」ボタンを表示（タイムライン表示時は別途表示される） #}
+{% if request.GET.q and not request.GET.sid %}
+  <p>
+    <a class="btn" href="{% url 'teacher_dashboard' %}#history-section">全履歴表示に戻る</a>
+  </p>
+{% endif %}
+
 {# タイムライン中はバッジと「全履歴表示に戻る」リンク #}
 {% if selected_student %}
  <p>表示中：
@@ -72,9 +83,7 @@
     {% else %}
       {{ selected_student.user.username }}
     {% endif %}さんのタイムライン（直近200件）
-    <a class="btn" href="{% url 'teacher_dashboard' %}{% if request.GET.q %}?q={{ request.GET.q|urlencode }}{% endif %}#history-section">
-      全履歴表示に戻る
-    </a>
+    <a class="btn" href="{% url 'teacher_dashboard' %}#history-section">全履歴表示に戻る</a>
   </p>
 {% endif %}
 
@@ -99,8 +108,12 @@
       </a>
       （{{ h.student.class_room.grade.name|default:"" }}{{ h.student.class_room.name|default:"" }}）
       <span class="meta">
-        <br>体調：{{ h.get_condition_display }}　
-        メンタル：{{ h.get_mental_display }}　<br>
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ff;color:#134f84;font-size:12px;">
+          体調：{{ h.get_condition_display }}
+        </span>
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f7f2ff;color:#4a2a85;font-size:12px;margin-left:6px;">
+          メンタル：{{ h.get_mental_display }}
+        </span>
       </span>
       連絡内容：{{ h.content|truncatechars:40 }}
       {% if h.is_read %}
