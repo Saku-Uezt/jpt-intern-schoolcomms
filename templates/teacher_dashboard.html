@@ -16,7 +16,10 @@
           {{ e.student.user.username }}
         {% endif %}
       </a>
-      （{{ e.student.class_room.grade.name|default:"" }}{{ e.student.class_room.name|default:"" }}）
+      （{{ e.student.class_room.grade.name|default:"" }}{{ e.student.class_room.name|default:"" }}
+      {% if e.student.student_no %}
+        {{ e.student.student_no }}番
+      {% endif %}）
       <span class="meta">
         <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ff;color:#134f84;font-size:12px;">
           体調：{{ e.get_condition_display }}
@@ -59,7 +62,7 @@
           {{ s.user.username }}
         {% endif %}
       </a>
-      （{{ s.class_room.grade.name }}{{ s.class_room.name }}）
+      （{{ s.class_room.grade.name }}{{ s.class_room.name }}{{ s.student_no }}番）
     </li>
   {% empty %}
     <li>未提出者はいません</li>
@@ -67,13 +70,6 @@
 </ul>
 
 <h3 id="history-section">履歴（最新200件）</h3>
-
-{# 検索結果表示中のみ「全履歴表示に戻る」ボタンを表示（タイムライン表示時は別途表示される） #}
-{% if request.GET.q and not request.GET.sid %}
-  <p>
-    <a class="btn" href="{% url 'teacher_dashboard' %}#history-section">全履歴表示に戻る</a>
-  </p>
-{% endif %}
 
 {# タイムライン中はバッジと「全履歴表示に戻る」リンク #}
 {% if request.GET.q or request.GET.sid %}
@@ -93,6 +89,12 @@
   <button class="btn" type="submit">検索</button>
 </form>
 
+{% if request.GET.q or request.GET.sid %}
+  <p class="mt-2">
+    <a class="btn" href="{% url 'teacher_dashboard' %}#history-section">全履歴表示に戻る</a>
+  </p>
+{% endif %}
+
 <ul>
   {% for h in history %}
     <li>
@@ -104,7 +106,10 @@
           {{ h.student.user.username }}
         {% endif %}
       </a>
-      （{{ h.student.class_room.grade.name|default:"" }}{{ h.student.class_room.name|default:"" }}）
+      （{{ h.student.class_room.grade.name|default:"" }}{{ h.student.class_room.name|default:"" }}
+      {% if h.student.student_no|default_if_none:"" %}
+        {{ h.student.student_no }}番
+      {% endif %}）
       <span class="meta">
         <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ff;color:#134f84;font-size:12px;">
           体調：{{ h.get_condition_display }}
