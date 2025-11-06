@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseForbidden
+from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Concat
 from django.contrib.auth.forms import AuthenticationForm
 from django.views.decorators.http import require_POST
 from django.db import transaction
@@ -11,13 +13,15 @@ from django.contrib import messages
 from django.urls import reverse
 from .models import Student, Entry, ClassRoom
 from .models import calc_prev_schoolday
+import logging
 
 def is_in(user, group_name: str) -> bool:
     return user.is_authenticated and user.groups.filter(name=group_name).exists()
 
-def prev_school_day(d: date) -> date:
-    #前登校日を返す（週明け月曜は金曜に戻す）
-    return d - timedelta(days=3) if d.weekday() == 0 else d - timedelta(days=1)
+# ※ 旧ロジック（models.py 側に統合済のためコメントアウト）
+# def prev_school_day(d: date) -> date:
+#     #前登校日を返す（週明け月曜は金曜に戻す）
+#     return d - timedelta(days=3) if d.weekday() == 0 else d - timedelta(days=1)
 
 
 # 標準のログイン画面（使用しないため念のためコメントアウト）
@@ -28,19 +32,34 @@ def prev_school_day(d: date) -> date:
 #             login(request, u); return redirect("home")
 #     return render(request, "login.html")
 
+#エラー時のロガーを定義
+logger = logging.getLogger(__name__)
 
 # 拡張版ログイン画面（認証時ロールに合わせてリダイレクト）
 def custom_login(request):
-    if request.method == "POST":
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            # 一元ルートへ集約
-            return redirect("route_after_login")
-    else:
-        form = AuthenticationForm()
-    return render(request, "registration/login.html", {"form": form})
+    logger.info("custom_login %s %s", request.method, request.path)
+    try:
+        if request.method == "POST":
+            form = AuthenticationForm(request, data=request.POST)
+            if form.is_valid():
+                user = form.get_user()
+                login(request, user)
+                # 一元ルートへ集約
+                return redirect("home")
+            else:
+                logger.warning("Login form invalid: %s", form.errors)
+        else:
+            form = AuthenticationForm()
+
+        # GET やエラー時もここで描画
+        return render(request, "registration/login.html", {"form": form}) 
+    
+    # 本番環境時のExceptionのロギング処理
+    except Exception as e:
+        # ここで例外の詳細とスタックトレースをログに出す
+        logger.exception("custom_login failed: %s", str(e))
+        # Django が500を返すように再送出
+        raise
 
 def logout_view(request):
     logout(request); return redirect("login")
@@ -72,9 +91,23 @@ def student_entry_new(request):
 
     student = get_object_or_404(Student, user=request.user)
     tdate = calc_prev_schoolday()  
+    # 曜日ラベル（0=月 ... 6=日）
+    weekday = "月火水木金土日"[tdate.weekday()]
+    tdate_label = f"{tdate.year}年{tdate.month}月{tdate.day}日（{weekday}）"
 
     if request.method == "POST":
         content = (request.POST.get("content") or "").strip()
+
+        # 数値化 + 1..5 に丸め（不正値はデフォルト3に）
+        def _to_scale(v):
+            try:
+                n = int(v)
+                return n if 1 <= n <= 5 else 3
+            except (TypeError, ValueError):
+                return 3
+
+        condition = _to_scale(request.POST.get("condition"))
+        mental    = _to_scale(request.POST.get("mental"))
 
         # 競合対策：最新状態でロックして取得（管理画面の操作と衝突しにくくする）
         with transaction.atomic():
@@ -90,18 +123,27 @@ def student_entry_new(request):
                 else:
                     # 未読（提出済）なら上書きOK
                     entry.content = content
+                    entry.condition = condition
+                    entry.mental    = mental
+                    fields = ["content", "condition", "mental"]
                     # statusを併用しているなら未読＝提出済みに同期しておく
                     if hasattr(Entry, "Status"):
                         entry.status = Entry.Status.SUBMITTED
-                    entry.save(update_fields=["content"] + (["status"] if hasattr(Entry, "Status") else []))
-                    messages.success(request, "提出を更新しました。")
+                        fields.append("status")
+                    entry.save(update_fields=fields)
+                    messages.success(request, "✅提出を更新しました。")
             else:
                 # まだ当日（前登校日）分が無ければ新規作成
-                kwargs = dict(student=student, target_date=tdate, content=content)
+                kwargs = dict(student=student, 
+                              target_date=tdate, 
+                              content=content,
+                              condition=condition,
+                              mental=mental,
+                              )
                 if hasattr(Entry, "Status"):
                     kwargs["status"] = Entry.Status.SUBMITTED
                 Entry.objects.create(**kwargs)
-                messages.success(request, "提出しました。")
+                messages.success(request, "✅提出が完了しました。")
 
         # PRG（Post→Redirect→Get）：二重送信防止＆最新状態で再描画
         return redirect(reverse("student_entry_new"))
@@ -112,8 +154,12 @@ def student_entry_new(request):
 
     return render(request, "student_entry_new.html", {
         "tdate": tdate,
+        "tdate_label": tdate_label,
         "entry": entry,
         "can_edit": can_edit,
+        "SHOW_HOME_LINK": True,
+        "HOME_URL": reverse("student_entries"),
+        "HOME_LABEL": "連絡帳履歴に移動",
     })
 
 @login_required
@@ -126,38 +172,74 @@ def student_entries(request):
 
 @login_required
 def teacher_dashboard(request):
+    # 先生（担任）以外は利用不可
     if not is_in(request.user, "TEACHER"):
         return HttpResponseForbidden("担任のみ利用可")
 
+    # 担任に紐づくクラスの生徒のみ、本日提出分（前日の連絡帳）を表示する
     classes = ClassRoom.objects.filter(homeroom_teacher=request.user)
-    tdate = calc_prev_schoolday()
+    tdate = calc_prev_schoolday()  # 例：月曜アクセス→金曜
 
-    students = Student.objects.filter(class_room__in=classes).select_related("user","class_room")
-    entries_today = (Entry.objects.filter(student__in=students, target_date=tdate)
-                     .select_related("student","student__user","student__class_room"))
+    students = Student.objects.filter(class_room__in=classes) \
+                              .select_related("user", "class_room")
 
+    entries_today = Entry.objects.filter(student__in=students, target_date=tdate) \
+                                 .select_related("student", "student__user", "student__class_room")
+
+    # entries_today の各エントリ(e)をキー化して提出/未提出の生徒を判定
+    # by_student = {e.student_id: e for e in entries_today}
+    # not_submitted = [s for s in students if s.id not in by_student]
     by_student = {e.student_id: e for e in entries_today}
     not_submitted = [s for s in students if s.id not in by_student]
 
-    history = (Entry.objects.filter(student__in=students)
-               .select_related("student","student__user","student__class_room")
-               .order_by("-target_date"))
+    # 履歴ベースのクエリセット
+    history = Entry.objects.filter(student__in=students) \
+                           .select_related("student", "student__user", "student__class_room")
 
-    q = request.GET.get("q")
+    # テンプレートから渡された検索キーワード(q)をもとに、
+    # 入力内容・ユーザーID・氏名・生徒番号のいずれかに部分一致する履歴を絞り込み
+    q = (request.GET.get("q") or "").strip()
     if q:
-        history = history.filter(
-            Q(content__icontains=q) |
-            Q(student__user__username__icontains=q) |
-            Q(student__user__first_name__icontains=q) |
-            Q(student__user__last_name__icontains=q) |
-            Q(student__student_no__icontains=q)
-        )
+        # 全角/半角スペースを除去した検索語（例：「山田　太郎」「山田太郎」どちらもOKに）
+        q_compact = q.replace(" ", "").replace("　", "")
+
+        history = history.annotate(
+            full_name_lf=Concat("student__user__last_name", "student__user__first_name"),
+            full_name_fl=Concat("student__user__first_name", "student__user__last_name"),
+            ).filter(
+                Q(content__icontains=q) |
+                Q(student__user__username__icontains=q) |
+                Q(student__user__first_name__icontains=q) |
+                Q(student__user__last_name__icontains=q) |
+                Q(student__student_no__icontains=q) |
+                # フルネーム（空白無し）での部分一致
+                Q(full_name_lf__icontains=q_compact) |
+                Q(full_name_fl__icontains=q_compact)
+            )
+
+    # 生徒タイムライン（sid）の構築
+    sid_raw = request.GET.get("sid")
+    try:
+        sid = int(sid_raw) if sid_raw is not None else None
+    except (TypeError, ValueError):
+        sid = None
+
+    selected_student = None # 変数定義と初期化
+
+    if sid and students.filter(id=sid).exists():
+        history = history.filter(student_id=sid)
+        # 表示用に対象生徒を取得
+        selected_student = students.select_related("user").get(id=sid)
+
+    # 並び安定化 → スライス
+    history = history.order_by("-target_date", "-id")[:200]
 
     return render(request, "teacher_dashboard.html", {
         "tdate": tdate,
         "entries_today": entries_today,
         "not_submitted": not_submitted,
-        "history": history[:200],
+        "history": history,
+        "selected_student": selected_student,
     })
 
 @login_required

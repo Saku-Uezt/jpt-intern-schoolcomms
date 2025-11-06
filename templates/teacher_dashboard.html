@@ -1,4 +1,3 @@
-<!-- templates/teacher_dashboard.html -->
 {% extends "base.html" %}
 {% block title %}先生アカウント{% endblock %}
 {% block content %}
@@ -9,9 +8,37 @@
 <ul>
   {% for e in entries_today %}
     <li>
-      {{ e.student.user.username }}：{{ e.content|default:"(内容なし)" }}
+      {# 氏名クリックでその生徒のタイムラインへ（qがあれば引き継ぐ） #}
+      <a href="?sid={{ e.student_id }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+        {% if e.student.user.last_name or e.student.user.first_name %}
+          {{ e.student.user.last_name }}{{ e.student.user.first_name }}
+        {% else %}
+          {{ e.student.user.username }}
+        {% endif %}
+      </a>
+      （{{ e.student.class_room.grade.name|default:"" }}{{ e.student.class_room.name|default:"" }}
+      {% if e.student.student_no %}
+        {{ e.student.student_no }}番
+      {% endif %}）
+      <span class="meta">
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ff;color:#134f84;font-size:12px;">
+          体調：{{ e.get_condition_display }}
+        </span>
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f7f2ff;color:#4a2a85;font-size:12px;margin-left:6px;">
+          メンタル：{{ e.get_mental_display }}
+        </span>
+      </span>
+      連絡内容：{{ e.content|default:"(内容なし)" }}
       {% if e.is_read %}
-        <span class="liked">👍 いいね済み（{{ e.read_by.username }} / {{ e.read_at|date:"Y-m-d H:i" }}）</span>
+        <span class="liked">
+          👍 いいね済み（
+          {% if e.read_by.last_name or e.read_by.first_name %}
+            {{ e.read_by.last_name }}{{ e.read_by.first_name }}
+          {% else %}
+            {{ e.read_by.username }}
+          {% endif %}
+          / {{ e.read_at|date:"Y-m-d H:i" }}）
+        </span>
       {% else %}
         <form method="post" action="{% url 'mark_read' e.id %}" style="display:inline;">
           {% csrf_token %}
@@ -27,26 +54,90 @@
 <h3>未提出</h3>
 <ul>
   {% for s in not_submitted %}
-    <li>{{ s.user.username }}（{{ s.class_room.name }}）</li>
+    <li>
+      <a href="?sid={{ s.id }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+        {% if s.user.last_name or s.user.first_name %}
+          {{ s.user.last_name }}{{ s.user.first_name }}
+        {% else %}
+          {{ s.user.username }}
+        {% endif %}
+      </a>
+      （{{ s.class_room.grade.name }}{{ s.class_room.name }}{{ s.student_no }}番）
+    </li>
   {% empty %}
     <li>未提出者はいません</li>
   {% endfor %}
 </ul>
 
-<h3>履歴（最新200件）</h3>
+<h3 id="history-section">履歴（最新200件）</h3>
+
+{# タイムライン中はバッジと「全履歴表示に戻る」リンク #}
+{% if request.GET.q or request.GET.sid %}
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('history-section');
+    if (el && el.scrollIntoView) el.scrollIntoView({block:'start'});
+  });
+</script>
+{% endif %}
+
 <form method="get">
+  <!-- 日付・ユーザーID・氏名・内容で絞り込み検索可（qをviewsに渡してフィルタ処理） -->
   <input name="q" value="{{ request.GET.q }}" placeholder="生徒名/内容で検索">
+  {# タイムライン状態を保って検索する用の hidden #}
+  {% if request.GET.sid %}<input type="hidden" name="sid" value="{{ request.GET.sid }}">{% endif %}
   <button class="btn" type="submit">検索</button>
 </form>
+
+{% if request.GET.q or request.GET.sid %}
+  <p class="mt-2">
+    <a class="btn" href="{% url 'teacher_dashboard' %}#history-section">全履歴表示に戻る</a>
+  </p>
+{% endif %}
+
 <ul>
   {% for h in history %}
     <li>
-      {{ h.target_date }} - {{ h.student.user.username }}：{{ h.content|truncatechars:40 }}
+      {{ h.target_date }} -
+      <a href="?sid={{ h.student_id }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}#history-section">
+        {% if h.student.user.last_name or h.student.user.first_name %}
+          {{ h.student.user.last_name }}{{ h.student.user.first_name }}
+        {% else %}
+          {{ h.student.user.username }}
+        {% endif %}
+      </a>
+      （{{ h.student.class_room.grade.name|default:"" }}{{ h.student.class_room.name|default:"" }}
+      {% if h.student.student_no|default_if_none:"" %}
+        {{ h.student.student_no }}番
+      {% endif %}）
+      <span class="meta">
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ff;color:#134f84;font-size:12px;">
+          体調：{{ h.get_condition_display }}
+        </span>
+        <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f7f2ff;color:#4a2a85;font-size:12px;margin-left:6px;">
+          メンタル：{{ h.get_mental_display }}
+        </span>
+      </span>
+      連絡内容：{{ h.content|truncatechars:40 }}
       {% if h.is_read %}
-        <span class="liked">👍 いいね済み（{{ h.read_by.username }} / {{ h.read_at|date:"Y-m-d H:i" }}）</span>
+        <span class="liked">
+          👍 いいね済み（
+          {% if h.read_by.last_name or h.read_by.first_name %}
+            {{ h.read_by.last_name }}{{ h.read_by.first_name }}
+          {% else %}
+            {{ h.read_by.username }}
+          {% endif %}
+          / {{ h.read_at|date:"Y-m-d H:i" }}）
+        </span>
       {% else %}
         <form method="post" action="{% url 'mark_read' h.id %}" style="display:inline;">
           {% csrf_token %}
+          {# 戻り先（タイムライン状態や検索条件を維持して履歴見出しへ） #}
+          <input type="hidden" name="next"
+            value="{% url 'teacher_dashboard' %}{% if request.GET.sid or request.GET.q %}?{% endif %}
+                  {% if request.GET.sid %}sid={{ request.GET.sid }}{% endif %}
+                  {% if request.GET.sid and request.GET.q %}&{% endif %}
+                  {% if request.GET.q %}q={{ request.GET.q|urlencode }}{% endif %}#history-section">
           <button class="btn" type="submit">&#128077; いいね</button>
         </form>
       {% endif %}

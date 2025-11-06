@@ -1,16 +1,62 @@
 {% extends "base.html" %}
 {% block title %}提出（前登校日）{% endblock %}
 {% block content %}
-  <h2>前登校日分の提出：{{ tdate }}</h2>
+  <h2>前登校日分の提出：{{ tdate_label }}</h2>
   {% if not entry %}
     <form method="post">{% csrf_token %}
+      <label>体調：</label>
+      <select name="condition" required>
+        <option value="1">とてもわるい</option>
+        <option value="2">わるい</option>
+        <option value="3" selected>ふつう</option>
+        <option value="4">よい</option>
+        <option value="5">とてもよい</option>
+      </select>
+      <br>
+
+      <label>メンタル：</label>
+      <select name="mental" required>
+        <option value="1">とても落ち込み気味</option>
+        <option value="2">やや不調</option>
+        <option value="3" selected>ふつう</option>
+        <option value="4">やや前向き</option>
+        <option value="5">とても前向き</option>
+      </select>
+      <br>
+
       <textarea name="content" rows="8" cols="60" placeholder="連絡帳の内容を入力"></textarea><br>
       <button type="submit">提出</button>
+      <p style="margin-top:6px;font-size:12px;color:#666;">
+        ※提出後は担任の確認（既読）まで編集できます
+      </p>
     </form>
   {% elif can_edit %}
     <form method="post">{% csrf_token %}
+      <label>体調：</label>
+      <select name="condition" required>
+        <option value="1" {% if entry.condition == 1 %}selected{% endif %}>とてもわるい</option>
+        <option value="2" {% if entry.condition == 2 %}selected{% endif %}>わるい</option>
+        <option value="3" {% if entry.condition == 3 %}selected{% endif %}>ふつう</option>
+        <option value="4" {% if entry.condition == 4 %}selected{% endif %}>よい</option>
+        <option value="5" {% if entry.condition == 5 %}selected{% endif %}>とてもよい</option>
+      </select>
+      <br>
+
+      <label>メンタル：</label>
+      <select name="mental" required>
+        <option value="1" {% if entry.mental == 1 %}selected{% endif %}>とても落ち込み気味</option>
+        <option value="2" {% if entry.mental == 2 %}selected{% endif %}>やや不調</option>
+        <option value="3" {% if entry.mental == 3 %}selected{% endif %}>ふつう</option>
+        <option value="4" {% if entry.mental == 4 %}selected{% endif %}>やや前向き</option>
+        <option value="5" {% if entry.mental == 5 %}selected{% endif %}>とても前向き</option>
+      </select>
+      <br>
+
       <textarea name="content" rows="8" cols="60">{{ entry.content }}</textarea><br>
       <button type="submit">更新して提出</button>
+      <p style="margin-top:6px;font-size:12px;color:#666;">
+        ※担任の確認（既読）までは再編集できます
+      </p>
     </form>
   {% else %}
     <p>先生が確認をしたため編集できません。
